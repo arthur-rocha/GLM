@@ -1,0 +1,446 @@
+<style>
+.footer {
+    color: black;
+    background: #E8E8E8;
+    position: fixed;
+    top: 90%;
+    text-align:center;
+    width:100%;
+}
+
+.reveal h1, .reveal h2, .reveal h3 {
+  word-wrap: normal;
+  -moz-hyphens: none;
+}
+
+/* Your other css */
+
+.section .reveal .state-background {
+    background: #151515;
+}
+
+
+.small-code pre code {
+  font-size: .8em;
+}
+
+</style>
+
+
+Análise do Conjunto de dados "Salário"
+========================
+author: Anaih P., Arthur R., Danny C., Paula M.
+date: Junho 26, 2018
+
+
+
+Os dados
+========================================================
+
+O conjunto de dados possui 220 observações aleatórias de 4 variáveis:
+
+- Salário Anual (em mil US$)
+- Sexo (0: Feminino , 1: Masculino)
+- Experiência (Anos)
+- Posição (Quanto maior mais alta)
+
+Objetivo
+========================================================
+Queremos tentar explicar a variável **Sálario** pelas outras covariáveis.
+A ideia aqui é usar o modelo de Regressão linear com suposição normal, isto é:
+>
+<center> $y_i \sim N(\mu_i,\sigma^2)$ </center>
+>
+
+
+Análise exploratória
+========================================================
+Queremos observar a distribuição da variável resposta **Salário** antes de mais nada, pois a partir daí vemos qual o modelo mais adequado.
+
+
+Análise exploratória
+========================================================
+<center>
+```{r echo=FALSE}
+library(ggplot2)
+library(gridExtra)
+setwd("C:/Users/ASUS/Desktop/Uem/4 ano/MLG/Trabalhos")
+dados=read.table("salary.dat.txt")
+names(dados)=c("Salário","Sexo","Posição","Experiência")
+p1=ggplot(dados,aes(Salário))+geom_density(fill="green4",alpha=.5,
+                                           colour=NA)+theme_minimal()+ylab("Densidade")+annotate(x=120,y=.025,
+label="Teste de Shapiro:\nW=0.993\nvalor-p=0.3596",geom="text",size=3.5,fontface=2)
+p2=ggplot(dados,aes(Salário))+geom_density(aes(fill=Sexo),alpha=.5,colour=NA)+theme_minimal()+ylab("Densidade")+facet_grid(~Sexo)+theme(legend.position = "none")
+grid.arrange(p1,p2)
+```
+</center>
+
+Análise exploratória
+========================================================
+É interessante observar como as informações estão antes de se modelar os dados. Logo, ao se observar o comportamento de **Experiência** e **Posição** dentro de **Sexo**, parece haver uma diferença.
+
+Análise exploratória
+========================================================
+<center>
+```{r echo=FALSE}
+library(ggplot2)
+library(gridExtra)
+library(plotly)
+setwd("C:/Users/ASUS/Desktop/Uem/4 ano/MLG/Trabalhos")
+dados=read.table("salary.dat.txt")
+names(dados)=c("Salário","Sexo","Posição","Experiência")
+ggplot(dados,aes(Sexo,Experiência,fill=Sexo))+geom_boxplot()+theme_minimal()+theme(axis.title.x = element_blank(),axis.text.x = element_blank())
+```
+</center>
+
+
+
+
+Análise exploratória
+========================================================
+<center>
+```{r echo=FALSE}
+ggplot(dados,aes(Sexo,Posição,fill=Sexo))+geom_boxplot()+theme_minimal()+theme(axis.title.x = element_blank(),axis.text.x = element_blank())
+```
+</center>
+
+
+Análise exploratória
+========================================================
+Ao se obserar o **Salário** *versus* a **Experiência** dentro de **Sexo**, nota-se que o salário tende a aumentar conforme a  experiência para ambos os sexos.
+
+Análise exploratória
+========================================================
+<center>
+```{r echo=FALSE}
+ggplot(dados,aes(y=Salário,x=Experiência,color=Sexo))+geom_point()+theme_minimal()
+```
+</center>
+
+
+Análise exploratória
+========================================================
+Da mesma forma, aparentemente quanto maior a posição, maior o salário independente do sexo.
+
+<center>
+```{r echo=FALSE}
+ggplot(dados,aes(y=Salário,x=factor(Posição),fill=Sexo))+geom_boxplot()+theme_minimal()+xlab("Posição (como fator)")
+```
+</center>
+
+Teste para Salário Médio
+==========================================================
+Para saber se há diferença significativa no salário médio entre os Sexos, vamos fazer um teste T para diferença de médias.
+
+```{r echo=FALSE}
+library(dplyr)
+library(broom)
+t=t.test(dados[dados$Sexo=="Masculino","Salário"],
+       dados[dados$Sexo!="Masculino","Salário"])
+list(t=t$statistic,Valor.p=t$p.value,H0="dif de médias = 0")
+```
+Nota-se que há evidências, com 5% de siginificância, de que as médias de salários diferem conforme o sexo se ignorarmos as demais covariáveis.
+
+Salário x Sexo
+==========================================================
+<center>
+```{r echo=FALSE}
+ggplot(dados,aes(Sexo,Salário,fill=Sexo))+geom_boxplot()+
+  theme_minimal()+theme(axis.title.x = element_blank(),
+                        axis.text.x = element_blank())
+```
+</center>
+
+
+Modelo aditivo
+============================================
+No primeiro momento, parece ser razoável tentarmos ajustar um modelo da forma:
+> $salario_i=\beta_0+\beta_1 sexo_i + \beta_2 experiencia_i +
+\\ \beta_3 posicao_i + \epsilon$
+
+em que $\epsilon \sim N(0,\sigma^2)$.
+
+
+Modelo aditivo
+============================================
+class: small-code
+
+Ao ajustar o modelo, obteve-se as estimativas e valores de teste:
+
+
+```{r echo=FALSE}
+modelo=glm(Salário~Sexo+Experiência+Posição,data=dados,family="gaussian")
+#tidy(modelo)
+summary(modelo)
+```
+
+Modelo aditivo
+============================================
+class: small-code
+
+Nota-se que todas as variáveis foram significativas para o modelo.
+Ao se aplicar o método de seleção **Stepwise**, que se baseia na informação de Akaike, notou-se que o modelo com as 3 covariáveis apresentou a menor medida (845.31), logo é o mais indicado.
+```{r echo=FALSE}
+step(modelo,direction = "both")
+```
+
+
+Modelo com interação
+============================================
+É interessante investigarmos se existe interação entre os fatores, isto é, se a resposta é diferente de acordo com a combinação de níveis dos fatores. Para isso, criamos o modelo saturado que incluia todas as interações de 2 fatores, da forma:
+
+>$salario_i=\beta_0+\beta_1 S_i + \beta_2 E_i +\beta_3 P_i+
+\\ \beta_4 S_i E_i +\beta_5 S_i P_i +\beta_6 E_i P_i+ \epsilon$
+
+Modelo com interação
+============================================
+class: small-code
+
+```{r echo=FALSE}
+lm(Salário~Sexo*Experiência*Posição,data=dados)%>%tidy()
+```
+
+
+Modelo com interação
+============================================
+Ao se avaliar o modelo completo, nota se que não houve um bom ajusta, então ao se aplicar o método de seleção **Stepwise**, obteve-se que o melhor modelo é o que considera apenas a interação entre **Experiência:Posição**.
+
+
+
+Modelo com interação
+============================================
+class: small-code
+
+```{r include=FALSE}
+modb=step(glm(Salário~Sexo*Experiência*Posição,data=dados,family="gaussian")) 
+```
+
+```{r echo=FALSE}
+summary(modb)
+```
+
+
+Teste da Razão de verossimilhança
+============================================
+Uma outra abordagem para seleção de variáveis no modelo é a partir do teste da razão de verossimilhança. Esse teste é utilizado para modelos aninhados, verificando se a inclusão ou exclusão de uma variável é significativa ao modelo. 
+O teste considera a razão das funções de verossimilhanças dos modelos e tem distribuição assintótica F.
+
+Teste da Razão de verossimilhança
+============================================
+class:small-code
+```{r echo=FALSE}
+completo=glm(Salário ~ Sexo*Experiência*Sexo*Posição,family=gaussian(link = "identity"),data=dados)
+quase.completo=glm(Salário ~ Sexo*Experiência+Sexo*Posição,family=gaussian(link = "identity"),data=dados)
+
+sem.interacao=glm(Salário ~ Experiência+Sexo+Posição,family=gaussian(link = "identity"),data=dados)
+
+uma.interacao=glm(Salário ~ Posição*Experiência+Sexo,family=gaussian(link = "identity"),data=dados)
+
+outra.interacao=glm(Salário ~Experiência*Sexo+ Posição,family=gaussian(link = "identity"),data=dados)
+
+outra.ainda=outra.interacao=glm(Salário ~ Experiência+Posição*Sexo,family=gaussian(link = "identity"),data=dados)
+  
+anova(sem.interacao,completo,test = "Chisq")
+
+anova(sem.interacao,quase.completo,test = "Chisq")
+anova(sem.interacao,uma.interacao,test = "Chisq")
+
+```
+
+Teste da Razão de verossimilhança
+============================================
+class:small-code
+```{r , echo=FALSE}
+
+anova(sem.interacao,outra.interacao,test = "Chisq")
+
+anova(sem.interacao,outra.ainda,test = "Chisq")
+
+anova(uma.interacao,completo,test = "Chisq")
+```
+
+Teste da Razão de verossimilhança
+============================================
+Nota-se que o método concordou com o resultado obtido anteriormente pelo critério de AIC, pois o modelo que teve melhor resultado em relação a diferença significativa na deviance (o mesmo que o modelo completo, mas com menos variáveis) foi o que considerava a interação entre **Posição** e **Experiência**. 
+
+
+Análise de resíduos
+============================================
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+##funcao de diagnostico normal
+diag_norm=function(fit.model){
+  par(mfrow=c(1,3))
+  X <- model.matrix(fit.model)
+n <- nrow(X)
+p <- ncol(X)
+H <- X%*%solve(t(X)%*%X)%*%t(X)
+h <- diag(H)
+si <- lm.influence(fit.model)$sigma
+r <- resid(fit.model)
+tsi <- r/(si*sqrt(1-h))
+#
+ident <- diag(n)
+epsilon <- matrix(0,n,100)
+e <- matrix(0,n,100)
+e1 <- numeric(n)
+e2 <- numeric(n)
+#
+for(i in 1:100){
+     epsilon[,i] <- rnorm(n,0,1)
+     e[,i] <- (ident - H)%*%epsilon[,i]
+     u <- diag(ident - H)
+     e[,i] <- e[,i]/sqrt(u)
+     e[,i] <- sort(e[,i]) }
+#
+for(i in 1:n){
+     eo <- sort(e[i,])
+     e1[i] <- (eo[2]+eo[3])/2
+     e2[i] <- (eo[97]+eo[98])/2 }
+#
+med <- apply(e,1,mean)
+faixa <- range(tsi,e1,e2)
+#
+par(pty="s")
+qqnorm(tsi,xlab="Percentis da N(0,1)",
+ylab="Residuo Studentizado", ylim=faixa, pch=16)
+par(new=T)
+qqnorm(e1,axes=F,xlab="",ylab="",type="l",ylim=faixa,lty=1)
+par(new=T)
+qqnorm(e2,axes=F,xlab="",ylab="", type="l",ylim=faixa,lty=1)
+par(new=T)
+qqnorm(med,axes=F,xlab="",ylab="",type="l",ylim=faixa,lty=2)
+
+##Pontos de alavanca
+plot(h,xlab="Índice", ylab="Medida h",
+     main="Pontos de Alavanca", pch=16)
+cut <- 2*p/n
+abline(cut,0,lty=2)
+
+tam=1:nrow(dados)
+plot(cooks.distance(fit.model), xlab="Indices",ylab="Distância de Cook",main='Pontos Influentes ',pch=19,  cex=0.8)
+
+}
+
+```
+
+
+<center>
+```{r echo=FALSE}
+dt=data.frame(Resíduos=rstandard(modb),Indice=1:length(rstandard(modb)),Ajustados=modb$fitted.values)
+ggplot(dt,aes(Indice,Resíduos))+geom_point()+theme_minimal()+
+  geom_hline(yintercept = c(-2,2),col="red2",lty="dashed")+
+  ggtitle("Pontos Aberrantes")
+```
+</center>
+
+Análise de resíduos
+============================================
+<center>
+```{r echo=FALSE}
+dt=data.frame(Resíduos=rstandard(modb),Indice=1:length(rstandard(modb)),Ajustados=modb$fitted.values)
+ggplot(dt,aes(Ajustados,Resíduos))+geom_point()+theme_minimal()+
+  geom_hline(yintercept = c(-2,2),col="red2",lty="dashed")+
+  ggtitle("Homocedasticidade")
+```
+</center>
+
+Análise de resíduos
+============================================
+width: 1920
+height: 1080
+
+
+<center>
+```{r echo=FALSE,fig.width=8,fig.height=6,dpi=300,out.width="1920px",out.height="600px",results = 'asis'}
+diag_norm(modb)
+```
+</center>
+
+Análise de resíduos (interativo)
+============================================
+<iframe src="modelo1.html" style="position:absolute;height:100%;width:100%"></iframe>
+
+Análise de resíduos
+============================================
+A normalidade dos componentes de desvios está ok, parecem existir alguns pontos influentes e de alavanca, mas testaremos outras funções de ligação antes de observá-los mais atentamente.
+
+
+Verificando adequação da função de ligação
+============================================
+Foi ajustado um modelo com o preditor linear ao quadrado, a fim de se saber se a função de ligação usada é a mais adequada. 
+
+Verificando adequação da função de ligação
+============================================
+class: small-code
+```{r echo=FALSE}
+pl=(modb$linear.predictors)^2
+modb2=glm(Salário ~ pl+ Sexo + Experiência + Posição + Experiência:Posição,
+         data=dados,family="gaussian")
+summary(modb2)
+```
+
+Verificando adequação da função de ligação
+============================================
+A deviance residual foi um pouco menor (9546.8) que a do modelo anterior (9555.5), podendo indicar que outra função de ligação iria ser mais adequada, logo testamos as outras funções.
+
+
+Função de ligação log
+============================================
+class:small-code
+```{r echo=FALSE}
+modb3=glm(Salário ~ Sexo + Experiência + Posição + Experiência:Posição,
+         data=dados,family=gaussian(link='log'))
+summary(modb3)
+```
+
+Função de ligação log
+============================================
+```{r echo=FALSE,fig.width=8,fig.height=6,dpi=300,out.width="1920px",out.height="600px",results = 'asis'}
+diag_norm(modb3)
+```
+
+Função de ligação inversa
+============================================
+class:small-code
+```{r echo=FALSE}
+modb4=glm(Salário ~  Sexo + Experiência + Posição + Experiência:Posição,
+         data=dados,family=gaussian(link='inverse'))
+summary(modb4)
+```
+
+Função de ligação inversa
+============================================
+```{r echo=FALSE,fig.width=8,fig.height=6,dpi=300,out.width="1920px",out.height="600px",results = 'asis'}
+diag_norm(modb4)
+```
+
+Escolhendo a função de ligação
+============================================
+```{r echo=FALSE,fig.width=8,fig.height=6,dpi=300,out.width="1920px",out.height="600px",results = 'asis'}
+par(mfrow=c(1,3))
+plot(modb$fitted.values,dados$Salário,main="Identity")
+plot(modb3$fitted.values,dados$Salário,main="log")
+plot(modb4$fitted.values,dados$Salário,main="inverse")
+```
+
+
+Escolhendo a função de ligação
+============================================
+Não houve vantagem aparente na mudança de função de ligação, logo tomamos a função original **Identidade** como a escolhida por ser a mais usual e simples.
+
+Pontos influentes
+============================================
+As observações 4 e 30 causam variações desproporcionais  em algumas medidas, porém não invalidam o modelo por conta da normalidade e homocedasticidade estarem satisfeitas. As observações são:
+```{r echo=FALSE}
+dados[c(4,30),]
+```
+
+
+Conclusão
+============================================
+O modelo Normal com função de ligação identidade se ajustou bem aos dados e ficou da forma:
+
+> $\hat{S}=108.0422 -2.8110 S_{mas} +0.3365 Exp+\\8.0960 Pos -0.1349 ExpPos$
+
+É importante salientar que a significância da interação entre experiência e posição indica que o salário de pessoas de sexo oposto deve ser comparado usando essas informações. Nesse caso, quando comparado novamente, as mulheres parecem ter salário médio maior do que os homens.
